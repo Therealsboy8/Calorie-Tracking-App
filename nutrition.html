@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutrition - FitTrack</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg {
+            background: linear-gradient(135deg, #2D5A27 0%, #8FBC8F 50%, #FF7F7F 100%);
+        }
+        .food-card {
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        .food-card:hover {
+            border-color: #10B981;
+            transform: translateY(-2px);
+        }
+        .food-card.selected {
+            border-color: #3B82F6;
+            background: #EBF8FF;
+        }
+        .nav-bottom {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .meal-section {
+            border-left: 4px solid #10B981;
+        }
+        .meal-section.breakfast { border-left-color: #F59E0B; }
+        .meal-section.lunch { border-left-color: #10B981; }
+        .meal-section.dinner { border-left-color: #8B5CF6; }
+        .meal-section.snack { border-left-color: #F97316; }
+        .macro-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: #E5E7EB;
+            overflow: hidden;
+        }
+        .macro-fill {
+            height: 100%;
+            transition: width 0.5s ease;
+        }
+        .search-container {
+            position: relative;
+        }
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            z-index: 30;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .floating-add {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            z-index: 40;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <!-- Header -->
+    <header class="gradient-bg text-white p-4 pb-8">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-2xl font-bold">Nutrition</h1>
+                <p class="text-sm opacity-90">Track your meals</p>
+            </div>
+            <div class="text-right">
+                <div class="text-2xl font-bold" id="daily-calories">1,247</div>
+                <div class="text-xs opacity-90">Calories today</div>
+            </div>
+        </div>
+        
+        <!-- Search Bar -->
+        <div class="search-container">
+            <div class="relative">
+                <input type="text" placeholder="Search foods..." 
+                       class="w-full bg-white text-gray-800 rounded-lg px-4 py-3 pl-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       id="food-search" oninput="searchFoods()">
+                <span class="absolute left-3 top-3 text-gray-400">🔍</span>
+            </div>
+            <div class="search-results hidden" id="search-results"></div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="px-4 pb-20">
+        <!-- Daily Summary -->
+        <section class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Today's Nutrition</h2>
+            
+            <!-- Macro Breakdown Chart -->
+            <div class="mb-6">
+                <div id="macro-chart" style="height: 200px;"></div>
+            </div>
+
+            <!-- Macro Details -->
+            <div class="grid grid-cols-3 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600">89g</div>
+                    <div class="text-sm text-gray-500">Protein</div>
+                    <div class="macro-bar mt-2">
+                        <div class="macro-fill bg-green-500" style="width: 75%"></div>
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">Goal: 120g</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-blue-600">156g</div>
+                    <div class="text-sm text-gray-500">Carbs</div>
+                    <div class="macro-bar mt-2">
+                        <div class="macro-fill bg-blue-500" style="width: 65%"></div>
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">Goal: 240g</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-orange-600">45g</div>
+                    <div class="text-sm text-gray-500">Fat</div>
+                    <div class="macro-bar mt-2">
+                        <div class="macro-fill bg-orange-500" style="width: 60%"></div>
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1">Goal: 75g</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Meal Sections -->
+        <section class="mb-6">
+            <h2 class="text-lg font-semibold mb-4">Meals</h2>
+            
+            <!-- Breakfast -->
+            <div class="meal-section breakfast bg-white rounded-xl shadow-lg p-4 mb-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <span class="text-2xl mr-3">🌅</span>
+                        <div>
+                            <h3 class="font-semibold">Breakfast</h3>
+                            <p class="text-sm text-gray-500">387 calories</p>
+                        </div>
+                    </div>
+                    <button onclick="addFoodToMeal('breakfast')" class="text-blue-600 text-sm font-medium">+ Add</button>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center mr-3">
+                                <span class="text-lg">🥣</span>
+                            </div>
+                            <div>
+                                <div class="font-medium">Oatmeal with Berries</div>
+                                <div class="text-sm text-gray-500">1 cup • 245 cal</div>
+                            </div>
+                        </div>
+                        <button onclick="removeFoodItem(this)" class="text-red-500 text-sm">Remove</button>
+                    </div>
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                                <span class="text-lg">🍊</span>
+                            </div>
+                            <div>
+                                <div class="font-medium">Orange Juice</div>
+                                <div class="text-sm text-gray-500">1 glass • 142 cal</div>
+                            </div>
+                        </div>
+                        <button onclick="removeFoodItem(this)" class="text-red-500 text-sm">Remove</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lunch -->
+            <div class="meal-section lunch bg-white rounded-xl shadow-lg p-4 mb-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <span class="text-2xl mr-3">☀️</span>
+                        <div>
+                            <h3 class="font-semibold">Lunch</h3>
+                            <p class="text-sm text-gray-500">520 calories</p>
+                        </div>
+                    </div>
+                    <button onclick="addFoodToMeal('lunch')" class="text-blue-600 text-sm font-medium">+ Add</button>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                                <span class="text-lg">🥗</span>
+                            </div>
+                            <div>
+                                <div class="font-medium">Chicken Caesar Salad</div>
+                                <div class="text-sm text-gray-500">Large bowl • 420 cal</div>
+                            </div>
+                        </div>
+                        <button onclick="removeFoodItem(this)" class="text-red-500 text-sm">Remove</button>
+                    </div>
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center mr-3">
+                                <span class="text-lg">🍞</span>
+                            </div>
+                            <div>
+                                <div class="font-medium">Whole Grain Bread</div>
+                                <div class="text-sm text-gray-500">2 slices • 100 cal</div>
+                            </div>
+                        </div>
+                        <button onclick="removeFoodItem(this)" class="text-red-500 text-sm">Remove</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dinner -->
+            <div class="meal-section dinner bg-white rounded-xl shadow-lg p-4 mb-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <span class="text-2xl mr-3">🌙</span>
+                        <div>
+                            <h3 class="font-semibold">Dinner</h3>
+                            <p class="text-sm text-gray-500">340 calories</p>
+                        </div>
+                    </div>
+                    <button onclick="addFoodToMeal('dinner')" class="text-blue-600 text-sm font-medium">+ Add</button>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center mr-3">
+                                <span class="text-lg">🐟</span>
+                            </div>
+                            <div>
+                                <div class="font-medium">Grilled Salmon</div>
+                                <div class="text-sm text-gray-500">4 oz • 280 cal</div>
+                            </div>
+                        </div>
+                        <button onclick="removeFoodItem(this)" class="text-red-500 text-sm">Remove</button>
+                    </div>
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                                <span class="text-lg">🥦</span>
+                            </div>
+                            <div>
+                                <div class="font-medium">Steamed Broccoli</div>
+                                <div class="text-sm text-gray-500">1 cup • 60 cal</div>
+                            </div>
+                        </div>
+                        <button onclick="removeFoodItem(this)" class="text-red-500 text-sm">Remove</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Snacks -->
+            <div class="meal-section snack bg-white rounded-xl shadow-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <span class="text-2xl mr-3">🍎</span>
+                        <div>
+                            <h3 class="font-semibold">Snacks</h3>
+                            <p class="text-sm text-gray-500">0 calories</p>
+                        </div>
+                    </div>
+                    <button onclick="addFoodToMeal('snack')" class="text-blue-600 text-sm font-medium">+ Add</button>
+                </div>
+                <div class="text-center py-8 text-gray-500">
+                    <span class="text-4xl mb-2 block">🍎</span>
+                    <p>No snacks logged yet</p>
+                    <p class="text-sm">Add a healthy snack to fuel your day</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Add Foods -->
+        <section class="mb-6">
+            <h2 class="text-lg font-semibold mb-4">Quick Add</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="food-card bg-white rounded-xl p-4 shadow-lg cursor-pointer" onclick="quickAddFood('apple', 95)">
+                    <div class="text-center">
+                        <div class="text-3xl mb-2">🍎</div>
+                        <div class="font-semibold">Apple</div>
+                        <div class="text-sm text-gray-500">95 cal</div>
+                    </div>
+                </div>
+                <div class="food-card bg-white rounded-xl p-4 shadow-lg cursor-pointer" onclick="quickAddFood('banana', 105)">
+                    <div class="text-center">
+                        <div class="text-3xl mb-2">🍌</div>
+                        <div class="font-semibold">Banana</div>
+                        <div class="text-sm text-gray-500">105 cal</div>
+                    </div>
+                </div>
+                <div class="food-card bg-white rounded-xl p-4 shadow-lg cursor-pointer" onclick="quickAddFood('water', 0)">
+                    <div class="text-center">
+                        <div class="text-3xl mb-2">💧</div>
+                        <div class="font-semibold">Water</div>
+                        <div class="text-sm text-gray-500">0 cal</div>
+                    </div>
+                </div>
+                <div class="food-card bg-white rounded-xl p-4 shadow-lg cursor-pointer" onclick="quickAddFood('coffee', 5)">
+                    <div class="text-center">
+                        <div class="text-3xl mb-2">☕</div>
+                        <div class="font-semibold">Black Coffee</div>
+                        <div class="text-sm text-gray-500">5 cal</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Nutrition Tips -->
+        <section class="bg-gradient-to-r from-green-400 to-blue-500 rounded-xl p-6 text-white mb-6">
+            <div class="flex items-center mb-3">
+                <span class="text-2xl mr-3">💡</span>
+                <h3 class="font-semibold">Nutrition Tip</h3>
+            </div>
+            <p class="text-sm opacity-90">Eating a variety of colorful fruits and vegetables ensures you get a wide range of vitamins and minerals. Aim for 5+ servings daily!</p>
+        </section>
+    </main>
+
+    <!-- Floating Add Button -->
+    <button class="floating-add bg-green-500 text-white w-14 h-14 rounded-full flex items-center justify-center" onclick="showAddFoodModal()">
+        <span class="text-2xl">+</span>
+    </button>
+
+    <!-- Bottom Navigation -->
+    <nav class="nav-bottom">
+        <div class="flex justify-around py-3">
+            <a href="index.html" class="flex flex-col items-center text-gray-500">
+                <span class="text-xl mb-1">🏠</span>
+                <span class="text-xs">Home</span>
+            </a>
+            <a href="workouts.html" class="flex flex-col items-center text-gray-500">
+                <span class="text-xl mb-1">💪</span>
+                <span class="text-xs">Workouts</span>
+            </a>
+            <a href="nutrition.html" class="flex flex-col items-center text-green-600">
+                <span class="text-xl mb-1">🥗</span>
+                <span class="text-xs font-medium">Nutrition</span>
+            </a>
+            <a href="progress.html" class="flex flex-col items-center text-gray-500">
+                <span class="text-xl mb-1">📊</span>
+                <span class="text-xs">Progress</span>
+            </a>
+        </div>
+    </nav>
+
+    <script>
+        // Food database for search
+        const foodDatabase = [
+            { name: 'Apple', calories: 95, protein: 0.5, carbs: 25, fat: 0.3, emoji: '🍎' },
+            { name: 'Banana', calories: 105, protein: 1.3, carbs: 27, fat: 0.4, emoji: '🍌' },
+            { name: 'Chicken Breast', calories: 231, protein: 43.5, carbs: 0, fat: 5, emoji: '🍗' },
+            { name: 'Broccoli', calories: 55, protein: 3.7, carbs: 11, fat: 0.6, emoji: '🥦' },
+            { name: 'Salmon', calories: 280, protein: 39, carbs: 0, fat: 12, emoji: '🐟' },
+            { name: 'Rice', calories: 205, protein: 4.3, carbs: 45, fat: 0.4, emoji: '🍚' },
+            { name: 'Avocado', calories: 234, protein: 2.9, carbs: 12, fat: 21, emoji: '🥑' },
+            { name: 'Greek Yogurt', calories: 100, protein: 17, carbs: 6, fat: 0, emoji: '🥛' },
+            { name: 'Almonds', calories: 164, protein: 6, carbs: 6, fat: 14, emoji: '🥜' },
+            { name: 'Sweet Potato', calories: 112, protein: 2, carbs: 26, fat: 0.1, emoji: '🍠' },
+            { name: 'Eggs', calories: 155, protein: 13, carbs: 1.1, fat: 11, emoji: '🥚' },
+            { name: 'Spinach', calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4, emoji: '🥬' },
+            { name: 'Quinoa', calories: 222, protein: 8, carbs: 39, fat: 3.6, emoji: '🌾' },
+            { name: 'Blueberries', calories: 84, protein: 1.1, carbs: 21, fat: 0.5, emoji: '🫐' },
+            { name: 'Oatmeal', calories: 147, protein: 5.4, carbs: 25, fat: 2.8, emoji: '🥣' }
+        ];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMacroChart();
+            animateFoodCards();
+        });
+
+        function initializeMacroChart() {
+            const chartDom = document.getElementById('macro-chart');
+            const myChart = echarts.init(chartDom);
+            
+            const option = {
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{a} <br/>{b}: {c}g ({d}%)'
+                },
+                series: [
+                    {
+                        name: 'Macronutrients',
+                        type: 'pie',
+                        radius: ['40%', '70%'],
+                        center: ['50%', '50%'],
+                        data: [
+                            { value: 89, name: 'Protein', itemStyle: { color: '#10B981' } },
+                            { value: 156, name: 'Carbs', itemStyle: { color: '#3B82F6' } },
+                            { value: 45, name: 'Fat', itemStyle: { color: '#F59E0B' } }
+                        ],
+                        emphasis: {
+                            itemStyle: {
+                                shadowBlur: 10,
+                                shadowOffsetX: 0,
+                                shadowColor: 'rgba(0, 0, 0, 0.5)'
+                            }
+                        },
+                        label: {
+                            show: false
+                        },
+                        labelLine: {
+                            show: false
+                        }
+                    }
+                ]
+            };
+            
+            myChart.setOption(option);
+        }
+
+        function animateFoodCards() {
+            anime({
+                targets: '.food-card',
+                translateY: [30, 0],
+                opacity: [0, 1],
+                duration: 600,
+                delay: anime.stagger(100),
+                easing: 'easeOutQuart'
+            });
+        }
+
+        function searchFoods() {
+            const query = document.getElementById('food-search').value.toLowerCase();
+            const resultsContainer = document.getElementById('search-results');
+            
+            if (query.length < 2) {
+                resultsContainer.classList.add('hidden');
+                return;
+            }
+
+            const matchingFoods = foodDatabase.filter(food => 
+                food.name.toLowerCase().includes(query)
+            );
+
+            if (matchingFoods.length > 0) {
+                resultsContainer.innerHTML = matchingFoods.map(food => `
+                    <div class="p-3 hover:bg-gray-50 cursor-pointer border-b" onclick="selectFood('${food.name}', ${food.calories})">
+                        <div class="flex items-center">
+                            <span class="text-2xl mr-3">${food.emoji}</span>
+                            <div>
+                                <div class="font-medium">${food.name}</div>
+                                <div class="text-sm text-gray-500">${food.calories} calories</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                resultsContainer.classList.remove('hidden');
+            } else {
+                resultsContainer.innerHTML = '<div class="p-3 text-gray-500 text-center">No foods found</div>';
+                resultsContainer.classList.remove('hidden');
+            }
+        }
+
+        function selectFood(name, calories) {
+            alert(`Selected ${name} (${calories} calories). This would open a portion size selector.`);
+            document.getElementById('search-results').classList.add('hidden');
+            document.getElementById('food-search').value = '';
+        }
+
+        function quickAddFood(food, calories) {
+            const dailyCalories = parseInt(document.getElementById('daily-calories').textContent);
+            const newTotal = dailyCalories + calories;
+            document.getElementById('daily-calories').textContent = newTotal;
+            
+            // Show success animation
+            anime({
+                targets: '#daily-calories',
+                scale: [1, 1.2, 1],
+                color: ['#1F2937', '#10B981', '#1F2937'],
+                duration: 1000,
+                easing: 'easeOutElastic(1, .8)'
+            });
+            
+            alert(`Added ${food} (${calories} calories) to your daily intake!`);
+        }
+
+        function addFoodToMeal(mealType) {
+            alert(`Add food to ${mealType}. This would open a meal-specific food selector.`);
+        }
+
+        function removeFoodItem(button) {
+            const foodItem = button.closest('.flex');
+            anime({
+                targets: foodItem,
+                opacity: [1, 0],
+                translateX: [0, -100],
+                duration: 300,
+                easing: 'easeOutQuart',
+                complete: () => {
+                    foodItem.remove();
+                }
+            });
+        }
+
+        function showAddFoodModal() {
+            alert('Add custom food modal coming soon! Create your own food entries with custom nutrition values.');
+        }
+
+        // Hide search results when clicking outside
+        document.addEventListener('click', function(event) {
+            const searchContainer = document.querySelector('.search-container');
+            if (!searchContainer.contains(event.target)) {
+                document.getElementById('search-results').classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

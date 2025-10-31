@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progress - FitTrack</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg {
+            background: linear-gradient(135deg, #2D5A27 0%, #8FBC8F 50%, #FF7F7F 100%);
+        }
+        .stat-card {
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        .nav-bottom {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .achievement-badge {
+            transition: all 0.3s ease;
+        }
+        .achievement-badge.unlocked {
+            animation: glow 2s infinite alternate;
+        }
+        @keyframes glow {
+            from { box-shadow: 0 0 10px rgba(251, 191, 36, 0.5); }
+            to { box-shadow: 0 0 20px rgba(251, 191, 36, 0.8); }
+        }
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        .progress-ring-circle {
+            transition: stroke-dasharray 0.5s ease;
+        }
+        .time-filter {
+            transition: all 0.3s ease;
+        }
+        .time-filter.active {
+            background: #3B82F6;
+            color: white;
+        }
+        .milestone-marker {
+            position: relative;
+        }
+        .milestone-marker::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background: #10B981;
+            border-radius: 50%;
+            border: 3px solid white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <!-- Header -->
+    <header class="gradient-bg text-white p-4 pb-8">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-2xl font-bold">Progress</h1>
+                <p class="text-sm opacity-90">Track your journey</p>
+            </div>
+            <div class="text-right">
+                <div class="text-2xl font-bold">7</div>
+                <div class="text-xs opacity-90">Day Streak</div>
+            </div>
+        </div>
+        
+        <!-- Time Filter -->
+        <div class="flex space-x-2 overflow-x-auto pb-2">
+            <button class="time-filter px-4 py-2 rounded-full bg-white text-sm font-medium whitespace-nowrap text-gray-800" onclick="changeTimeFilter('week')">Week</button>
+            <button class="time-filter px-4 py-2 rounded-full bg-white text-sm font-medium whitespace-nowrap text-gray-800 active" onclick="changeTimeFilter('month')">Month</button>
+            <button class="time-filter px-4 py-2 rounded-full bg-white text-sm font-medium whitespace-nowrap text-gray-800" onclick="changeTimeFilter('year')">Year</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="px-4 pb-20">
+        <!-- Key Stats -->
+        <section class="grid grid-cols-2 gap-4 mb-6">
+            <div class="stat-card bg-white rounded-xl p-4 shadow-lg">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600">-3.2</div>
+                    <div class="text-sm text-gray-500">lbs lost</div>
+                    <div class="text-xs text-green-600 mt-1">This month</div>
+                </div>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-4 shadow-lg">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-blue-600">23</div>
+                    <div class="text-sm text-gray-500">workouts</div>
+                    <div class="text-xs text-blue-600 mt-1">This month</div>
+                </div>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-4 shadow-lg">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-orange-600">89%</div>
+                    <div class="text-sm text-gray-500">goal achieved</div>
+                    <div class="text-xs text-orange-600 mt-1">This month</div>
+                </div>
+            </div>
+            <div class="stat-card bg-white rounded-xl p-4 shadow-lg">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-purple-600">156</div>
+                    <div class="text-sm text-gray-500">avg calories</div>
+                    <div class="text-xs text-purple-600 mt-1">Per day</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Weight Progress Chart -->
+        <section class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Weight Progress</h2>
+            <div id="weight-chart" style="height: 250px;"></div>
+        </section>
+
+        <!-- Calorie Trends -->
+        <section class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Calorie Trends</h2>
+            <div id="calorie-chart" style="height: 250px;"></div>
+        </section>
+
+        <!-- Workout Frequency -->
+        <section class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Workout Frequency</h2>
+            <div class="grid grid-cols-7 gap-2 mb-4">
+                <div class="text-center">
+                    <div class="text-xs text-gray-500 mb-2">Mon</div>
+                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold">✓</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xs text-gray-500 mb-2">Tue</div>
+                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold">✓</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xs text-gray-500 mb-2">Wed</div>
+                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold">✓</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xs text-gray-500 mb-2">Thu</div>
+                    <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-400 text-xs">✗</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xs text-gray-500 mb-2">Fri</div>
+                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold">✓</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xs text-gray-500 mb-2">Sat</div>
+                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold">✓</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xs text-gray-500 mb-2">Sun</div>
+                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold">✓</div>
+                </div>
+            </div>
+            <div class="text-center">
+                <div class="text-sm text-gray-600">6/7 days this week</div>
+            </div>
+        </section>
+
+        <!-- Achievements -->
+        <section class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Achievements</h2>
+            <div class="grid grid-cols-3 gap-4">
+                <div class="text-center achievement-badge unlocked">
+                    <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span class="text-2xl">🏆</span>
+                    </div>
+                    <div class="text-xs font-medium">First Week</div>
+                    <div class="text-xs text-gray-500">Completed</div>
+                </div>
+                <div class="text-center achievement-badge unlocked">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span class="text-2xl">🎯</span>
+                    </div>
+                    <div class="text-xs font-medium">Goal Crusher</div>
+                    <div class="text-xs text-gray-500">5 days streak</div>
+                </div>
+                <div class="text-center achievement-badge unlocked">
+                    <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span class="text-2xl">💪</span>
+                    </div>
+                    <div class="text-xs font-medium">Strong Start</div>
+                    <div class="text-xs text-gray-500">10 workouts</div>
+                </div>
+                <div class="text-center achievement-badge">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span class="text-2xl opacity-50">🔥</span>
+                    </div>
+                    <div class="text-xs font-medium text-gray-500">Hot Streak</div>
+                    <div class="text-xs text-gray-400">14 days</div>
+                </div>
+                <div class="text-center achievement-badge">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span class="text-2xl opacity-50">⚡</span>
+                    </div>
+                    <div class="text-xs font-medium text-gray-500">Lightning</div>
+                    <div class="text-xs text-gray-400">50 workouts</div>
+                </div>
+                <div class="text-center achievement-badge">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span class="text-2xl opacity-50">👑</span>
+                    </div>
+                    <div class="text-xs font-medium text-gray-500">Champion</div>
+                    <div class="text-xs text-gray-400">100 days</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Milestones -->
+        <section class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Milestones</h2>
+            <div class="space-y-4">
+                <div class="flex items-center">
+                    <div class="milestone-marker w-8 h-8 bg-green-500 rounded-full mr-4"></div>
+                    <div class="flex-1">
+                        <div class="font-medium">Started fitness journey</div>
+                        <div class="text-sm text-gray-500">January 1, 2025</div>
+                    </div>
+                    <div class="text-green-600 text-sm font-medium">✓ Complete</div>
+                </div>
+                <div class="flex items-center">
+                    <div class="milestone-marker w-8 h-8 bg-green-500 rounded-full mr-4"></div>
+                    <div class="flex-1">
+                        <div class="font-medium">First week completed</div>
+                        <div class="text-sm text-gray-500">January 8, 2025</div>
+                    </div>
+                    <div class="text-green-600 text-sm font-medium">✓ Complete</div>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-blue-500 rounded-full mr-4 flex items-center justify-center">
+                        <div class="w-3 h-3 bg-white rounded-full"></div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-medium">Lose 5 lbs</div>
+                        <div class="text-sm text-gray-500">Target: February 15, 2025</div>
+                    </div>
+                    <div class="text-blue-600 text-sm font-medium">In Progress</div>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-gray-200 rounded-full mr-4 flex items-center justify-center">
+                        <div class="w-3 h-3 bg-gray-400 rounded-full"></div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-medium">Complete 50 workouts</div>
+                        <div class="text-sm text-gray-500">Target: March 1, 2025</div>
+                    </div>
+                    <div class="text-gray-500 text-sm">Upcoming</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Body Measurements -->
+        <section class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Body Measurements</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="text-center">
+                    <div class="text-lg font-bold text-gray-800">165.2</div>
+                    <div class="text-sm text-gray-500">Current Weight (lbs)</div>
+                    <div class="text-xs text-green-600 mt-1">-3.2 from start</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-lg font-bold text-gray-800">22.1</div>
+                    <div class="text-sm text-gray-500">BMI</div>
+                    <div class="text-xs text-green-600 mt-1">Normal range</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-lg font-bold text-gray-800">18.5%</div>
+                    <div class="text-sm text-gray-500">Body Fat</div>
+                    <div class="text-xs text-blue-600 mt-1">Healthy</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-lg font-bold text-gray-800">42.1%</div>
+                    <div class="text-sm text-gray-500">Muscle Mass</div>
+                    <div class="text-xs text-blue-600 mt-1">Good</div>
+                </div>
+            </div>
+            <button onclick="addMeasurement()" class="w-full mt-4 bg-blue-500 text-white py-2 rounded-lg font-medium">Update Measurements</button>
+        </section>
+
+        <!-- Insights -->
+        <section class="bg-gradient-to-r from-purple-400 to-pink-500 rounded-xl p-6 text-white mb-6">
+            <div class="flex items-center mb-3">
+                <span class="text-2xl mr-3">🧠</span>
+                <h3 class="font-semibold">Smart Insights</h3>
+            </div>
+            <div class="space-y-3">
+                <div class="bg-white bg-opacity-20 rounded-lg p-3">
+                    <div class="font-medium mb-1">Great consistency!</div>
+                    <div class="text-sm opacity-90">You've maintained a 6-day workout streak this week. Keep up the excellent work!</div>
+                </div>
+                <div class="bg-white bg-opacity-20 rounded-lg p-3">
+                    <div class="font-medium mb-1">Nutrition balance</div>
+                    <div class="text-sm opacity-90">Your protein intake has improved by 23% this month. Your muscles thank you!</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="nav-bottom">
+        <div class="flex justify-around py-3">
+            <a href="index.html" class="flex flex-col items-center text-gray-500">
+                <span class="text-xl mb-1">🏠</span>
+                <span class="text-xs">Home</span>
+            </a>
+            <a href="workouts.html" class="flex flex-col items-center text-gray-500">
+                <span class="text-xl mb-1">💪</span>
+                <span class="text-xs">Workouts</span>
+            </a>
+            <a href="nutrition.html" class="flex flex-col items-center text-gray-500">
+                <span class="text-xl mb-1">🥗</span>
+                <span class="text-xs">Nutrition</span>
+            </a>
+            <a href="progress.html" class="flex flex-col items-center text-blue-600">
+                <span class="text-xl mb-1">📊</span>
+                <span class="text-xs font-medium">Progress</span>
+            </a>
+        </div>
+    </nav>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeWeightChart();
+            initializeCalorieChart();
+            animateStatCards();
+            animateAchievements();
+        });
+
+        function initializeWeightChart() {
+            const chartDom = document.getElementById('weight-chart');
+            const myChart = echarts.init(chartDom);
+            
+            const dates = [];
+            const weights = [];
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 30);
+            
+            for (let i = 0; i < 30; i++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+                dates.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                
+                // Simulate weight loss trend
+                const baseWeight = 168.4;
+                const variation = Math.sin(i * 0.1) * 0.5 + Math.random() * 0.3;
+                const trend = -i * 0.08;
+                weights.push((baseWeight + trend + variation).toFixed(1));
+            }
+            
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function(params) {
+                        return `${params[0].axisValue}<br/>Weight: ${params[0].value} lbs`;
+                    }
+                },
+                xAxis: {
+                    type: 'category',
+                    data: dates,
+                    axisLabel: {
+                        interval: 4,
+                        fontSize: 10
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    min: 160,
+                    max: 170,
+                    axisLabel: {
+                        formatter: '{value} lbs',
+                        fontSize: 10
+                    }
+                },
+                series: [{
+                    data: weights,
+                    type: 'line',
+                    smooth: true,
+                    lineStyle: {
+                        color: '#10B981',
+                        width: 3
+                    },
+                    itemStyle: {
+                        color: '#10B981'
+                    },
+                    areaStyle: {
+                        color: {
+                            type: 'linear',
+                            x: 0,
+                            y: 0,
+                            x2: 0,
+                            y2: 1,
+                            colorStops: [{
+                                offset: 0, color: 'rgba(16, 185, 129, 0.3)'
+                            }, {
+                                offset: 1, color: 'rgba(16, 185, 129, 0.1)'
+                            }]
+                        }
+                    }
+                }]
+            };
+            
+            myChart.setOption(option);
+        }
+
+        function initializeCalorieChart() {
+            const chartDom = document.getElementById('calorie-chart');
+            const myChart = echarts.init(chartDom);
+            
+            const dates = [];
+            const calories = [];
+            const goal = [];
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 14);
+            
+            for (let i = 0; i < 14; i++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+                dates.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                
+                // Simulate calorie intake with some variation
+                const baseCalories = 1800 + Math.random() * 400;
+                calories.push(Math.round(baseCalories));
+                goal.push(2000);
+            }
+            
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function(params) {
+                        return `${params[0].axisValue}<br/>Calories: ${params[0].value}<br/>Goal: ${params[1].value}`;
+                    }
+                },
+                legend: {
+                    data: ['Calories', 'Goal'],
+                    bottom: 0
+                },
+                xAxis: {
+                    type: 'category',
+                    data: dates,
+                    axisLabel: {
+                        interval: 2,
+                        fontSize: 10
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: {
+                        formatter: '{value} cal',
+                        fontSize: 10
+                    }
+                },
+                series: [
+                    {
+                        name: 'Calories',
+                        type: 'bar',
+                        data: calories,
+                        itemStyle: {
+                            color: '#3B82F6'
+                        }
+                    },
+                    {
+                        name: 'Goal',
+                        type: 'line',
+                        data: goal,
+                        lineStyle: {
+                            color: '#10B981',
+                            type: 'dashed'
+                        },
+                        itemStyle: {
+                            color: '#10B981'
+                        }
+                    }
+                ]
+            };
+            
+            myChart.setOption(option);
+        }
+
+        function animateStatCards() {
+            anime({
+                targets: '.stat-card',
+                translateY: [30, 0],
+                opacity: [0, 1],
+                duration: 600,
+                delay: anime.stagger(100),
+                easing: 'easeOutQuart'
+            });
+        }
+
+        function animateAchievements() {
+            anime({
+                targets: '.achievement-badge.unlocked',
+                scale: [0.8, 1],
+                duration: 800,
+                delay: 1000,
+                easing: 'easeOutElastic(1, .8)'
+            });
+        }
+
+        function changeTimeFilter(period) {
+            // Update active filter button
+            document.querySelectorAll('.time-filter').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update charts based on selected period
+            alert(`Switched to ${period} view. Charts would update to show ${period} data.`);
+        }
+
+        function addMeasurement() {
+            alert('Add measurement modal coming soon! Update your weight, body fat %, and other measurements.');
+        }
+    </script>
+</body>
+</html>
